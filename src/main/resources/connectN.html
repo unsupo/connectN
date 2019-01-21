@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html>
+<style>
+    #connect4 {
+        width: 400px;
+        height: 400px;
+        position: relative;
+        background: yellow;
+    }
+    .line{
+        position: absolute;
+        background-color: green;
+    }
+    .horline {
+        width: 400px;
+        height: 5px;
+    }
+    .virline {
+        width: 5px;
+        height: 400px;
+    }
+    .chip {
+        width: 50px;
+        height: 50px;
+        position: absolute;
+        background-color: red;
+        border-radius: 50%;
+    }
+    .black {
+        background-color: black;
+    }
+    .custButton {
+        font-size: 30% !important;
+        width: 57px !important;
+    }
+</style>
+<!--
+<body>
+
+<div id="header"></div>
+<div id="connect4"></div>
+<button id="reset" onclick="reset()">reset</button>
+<h3 id="winner"></h3>
+-->
+<script>
+    columns=[];
+    color = 1;
+    isFalling = false;
+    maxRows=6;
+    winCount = 4;
+    isDone = false;
+    addedObjs=[];
+    canvas=null;
+
+    function reset() {
+        for(var i = 0; i<addedObjs.length; i++)
+            document.getElementById("connect4").removeChild(addedObjs[i]);
+        var vl = 6;
+        columns = [vl+1];
+        for (var i = 0; i < vl+1; i++) {
+            columns[i] = new Column(i);
+        }
+        color = 1;
+        isFalling = false;
+        maxRows=6;
+        winCount = 4;
+        isDone = false;
+        addedObjs=[];
+        document.getElementById("winner").innerHTML="";
+    }
+
+    function addToColumn(column) {
+        if(isFalling || isDone) return;
+        columns[column].addColor(color);
+        color = color == 1 ? 2 : 1;
+    }
+    function checkForVictory(column,row) {
+        var winCount = 4, rows = 6, colorCountHor = 0, colorCountNegDiag = 0, colorCountPosDiag = 0;
+        for (var i = column - winCount < 0 ? 0 : column - winCount;
+            i < (column + winCount > columns.length ? columns.length : column + winCount); i++) {
+            var sD = i-column+row, sU = -i+column+row;
+            // check left and right or horizontally
+            if(columns[i].column[row]==color)
+                colorCountHor++;
+            else colorCountHor=0;
+            // finally check diagonally negative (or check left up right down) and positive (or left down right up) diagonals
+            // negative diagonal
+            if(sD >=0 && sD < rows && columns[i].column[sD]==color)
+                colorCountNegDiag++;
+            else colorCountNegDiag=0;
+            // positive diagonal
+            if(sU >=0 && sU < rows && columns[i].column[sU]==color)
+                colorCountPosDiag++;
+            else colorCountPosDiag=0;
+            if(colorCountHor>=winCount || colorCountNegDiag>=winCount || colorCountPosDiag>=winCount)
+                return color;
+        }
+    }
+
+    /*
+    if depth = 0 or node is a terminal node then
+        return the heuristic value of node
+    if maximizingPlayer then
+        value := −∞
+        for each child of node do
+            value := max(value, minimax(child, depth − 1, FALSE))
+        return value
+    else (* minimizing player *)
+        value := +∞
+        for each child of node do
+            value := min(value, minimax(child, depth − 1, TRUE))
+        return value
+     */
+    function getAiMove(node,depth,maximizingPlayer) {
+        if(depth==0 || node.isTerminal())
+            return node.getHueristic();
+        if(maximizingPlayer)
+            var value = Number.MAX_VALUE, func = Math.max;
+        else
+            var value = -Number.MAX_VALUE, func = Math.min;
+        var child = node.clone();
+        for(var i = 0; i<columns.length; i++){
+            value = func(value,getAiMove(child,depth-1,!maximizingPlayer))
+        }
+        return value;
+    }
+
+
+    class Column{
+        constructor(row) {
+            this.row = row;
+            this.posY= 3+58* row;
+            this.col = 0;
+            this.setPosX();
+            this.rCount = 0;
+            this.bCount = 0;
+            this.column = new Array(6);
+        }
+        setPosX(){
+            this.posX = 335 - 67 * this.col;
+        }
+        addColor(color) {
+            if(this.col >= maxRows)
+                return;
+            var b = document.createElement('div');
+            b.classList.add("chip");
+            if(color==2)
+                b.classList.add('black');
+            b.style.top=0;
+            b.style.left=this.posY+'px';
+            canvas.appendChild(b);
+            addedObjs.push(b);
+            var pos = 0;
+            var posX = this.posX;
+            var _callback = this;
+            isFalling = true;
+            var id = setInterval(function() {
+                if(pos >= posX){
+                    isFalling=false;
+                    clearInterval(id);
+                    _callback.setPosX();
+                }else{
+                    pos+=3;
+                    b.style.top = pos + "px";
+                }
+            }, 5);
+            if (color == 1) {
+                this.rCount += 1;
+                this.bCount = 0;
+            } else{
+                this.bCount += 1;
+                this.rCount = 0;
+            }
+            var won = false;
+            var text;
+            if(this.rCount >= winCount){
+                won=true;
+                text="Red WON";
+            }else if(this.bCount >= winCount){
+                won=true;
+                text="Black WON";
+            }
+            this.column[this.col] = color;
+            var w = checkForVictory(this.row,this.col);
+            this.col += 1;
+            if(w){
+                won = true;
+                if(w==1)
+                    text = "Red ";
+                else text = "Black ";
+                text+="WON";
+            }
+            if(won){
+                isDone=true;
+                var elem = document.getElementById('winner');
+                elem.innerHTML = text;
+            }
+        }
+    }
+
+    function waitForElement(elementId, callBack){
+        window.setTimeout(function(){
+            var element = document.getElementById(elementId);
+            if(element){
+                callBack(elementId, element);
+            }else{
+                waitForElement(elementId, callBack);
+            }
+        },500)
+    }
+
+    (function () {
+        waitForElement("connect4",function() {
+            canvas = document.getElementById("connect4");
+            var hel = document.getElementById("header");
+            var hl = 5;
+            for (var i = 0; i < hl; i++) {
+                var elem = document.createElement('div');
+                elem.classList.add("line");
+                elem.classList.add("horline");
+                elem.style.top += 60 + 67 * i + 'px';
+                canvas.appendChild(elem);
+            }
+            var vl = 6;
+            columns = [vl + 1];
+            for (var i = 0; i < vl + 1; i++) {
+                columns[i] = new Column(i);
+            }
+            for (var i = 0; i < vl + 1; i++) {
+                var b = document.createElement('button');
+                b.classList.add('custButton');
+                b.setAttribute('onclick', 'addToColumn(' + i + ')');
+                b.innerHTML = 'addTo:' + i;
+                hel.appendChild(b);
+            }
+            for (var i = 0; i < vl; i++) {
+                var elem = document.createElement('div');
+                elem.classList.add("line");
+                elem.classList.add("virline");
+                elem.style.top += 0 + 'px';
+                elem.style.left += 55 + 57 * i + 'px';
+                canvas.appendChild(elem);
+            }
+        })
+    })();
+</script>
+
+</body>
+</html>
